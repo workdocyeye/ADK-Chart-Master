@@ -316,18 +316,11 @@ class PlantUMLRenderTool(BaseRenderTool):
         # 标准化换行符
         code = code.replace('\r\n', '\n').replace('\r', '\n')
 
-        # 自动插入多字体skinparam，确保所有区域中文显示
-        font_skinparams = [
-            'skinparam defaultFontName "Microsoft YaHei, SimHei, SimSun, Arial Unicode MS, WenQuanYi Micro Hei"',
-            'skinparam noteFontName "Microsoft YaHei, SimHei, SimSun, Arial Unicode MS, WenQuanYi Micro Hei"',
-            'skinparam legendFontName "Microsoft YaHei, SimHei, SimSun, Arial Unicode MS, WenQuanYi Micro Hei"',
-            'skinparam titleFontName "Microsoft YaHei, SimHei, SimSun, Arial Unicode MS, WenQuanYi Micro Hei"',
-        ]
+        # 极简中文字体配置 - 使用兼容性最好的字体设置
         lines = code.split('\n')
         # 只在@startuml后面插入，且避免重复插入
         if len(lines) > 1 and not any('skinparam defaultFontName' in l for l in lines[:8]):
-            for i, param in enumerate(font_skinparams):
-                lines.insert(1 + i, param)
+            lines.insert(1, 'skinparam defaultFontName "Microsoft YaHei,SimHei,Arial Unicode MS"')
         code = '\n'.join(lines)
         
         return code
@@ -381,9 +374,10 @@ class PlantUMLRenderTool(BaseRenderTool):
                 input_file = temp_path / "input.puml"
                 input_file.write_text(code, encoding='utf-8')
                 
-                # 构建命令
+                # 构建命令 - 添加UTF-8字符编码支持解决中文乱码
                 cmd = [
                     'java', '-jar', jar_path,
+                    '-charset', 'UTF-8',
                     f'-t{output_format}',
                     str(input_file)
                 ]
