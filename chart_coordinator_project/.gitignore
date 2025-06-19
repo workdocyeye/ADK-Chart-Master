@@ -1,0 +1,170 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# IDE和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+
+# 日志文件
+*.log
+logs/
+
+# 环境变量文件（包含敏感信息）
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 文档和参考资料（这是关键！）
+docs/
+参考文档/
+下载文档/
+介绍文档/
+资料/
+*.pdf
+*.docx
+*.doc
+*.ppt
+*.pptx
+
+# 临时文件
+temp/
+tmp/
+*.backup
+*.bak
+
+# 项目特定的排除文件
+# 如果您有其他不想提交的文件夹，可以在这里添加
+
+# Node.js (如果使用)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编译输出
+*.pyc
+*.pyo
+
+# 项目特定忽略规则
+# 测试文件
+test_*.py
+test_*.puml
+test_*.png
+test_*.svg
+test_*.pdf
+debug_*.py
+*_test.py
+
+# 生成的图表文件（用户生成的图片）
+chart_*.png
+chart_*.svg
+chart_*.pdf
+diagram_*.png
+diagram_*.svg
+diagram_*.pdf
+graph_*.png
+graph_*.svg
+graph_*.pdf
+*.puml.png
+*.puml.svg
+*.puml.pdf
+
+# PlantUML JAR文件（可选，如果不想提交）
+# plantuml*.jar
+
+# 渲染工具缓存
+.render_cache/
+render_temp/
+
+# ADK生成的文件
+.adk/
+adk_sessions/
+
+# 调试和开发文件
+debug.py
+test.py
+playground.py
+scratch.py
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Pytest
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# 环境变量
+.env.bak/
+venv.bak/
+
+# 操作系统
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# 项目特定临时文件
+temp_*.js
+temp_*.png
+temp_*.svg
+temp_*.pdf
+temp_*.html
+*.tmp
+
+# ADK特定
+artifacts/
+outputs/
+.adk_cache/ 

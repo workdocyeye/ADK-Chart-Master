@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "echarts": "^5.6.0",
+    "jsdom": "^26.1.0",
+    "three": "^0.177.0"
+  },
+  "name": "adk-chart-master",
+  "version": "1.1.0",
+  "description": "基于Google ADK框架的企业级智能图表生成系统 - ADK Chart Master",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
