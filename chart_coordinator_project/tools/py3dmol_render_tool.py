@@ -1,11 +1,10 @@
 # Copyright 2025 Google LLC
-# py3Dmol渲染工具 - 分子可视化专家
+# py3Dmol渲染工具 - 分子可视化专家（极简版）
 
 import logging
 import tempfile
 import subprocess
 import sys
-import platform
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Py3dmolRenderTool(BaseRenderTool):
-    """🧬 py3Dmol分子3D可视化渲染工具"""
+    """🧬 py3Dmol分子3D可视化渲染工具（极简版）"""
     
     def __init__(self):
         super().__init__(
@@ -37,7 +36,7 @@ class Py3dmolRenderTool(BaseRenderTool):
                 properties={
                     'code': types.Schema(
                         type=types.Type.STRING,
-                        description='要渲染的Python py3Dmol代码。应该包含分子结构加载、样式设置、3D视图配置等'
+                        description='要渲染的Python py3Dmol代码。代码必须纯净，包含分子结构加载、样式设置、3D视图配置等。请确保代码自包含且可直接执行。'
                     ),
                     'output_format': types.Schema(
                         type=types.Type.STRING,
@@ -66,84 +65,27 @@ class Py3dmolRenderTool(BaseRenderTool):
         )
     
     def _check_dependencies(self):
-        """🔧 py3Dmol依赖检查和安装指导"""
+        """🔧 py3Dmol依赖检查"""
         logger.info("🔍 检查py3Dmol依赖...")
         
         self._py3dmol_available = False
-        self._missing_deps = []
         
-        # 检查核心依赖
-        dependencies = [
-            {
-                'name': 'py3Dmol',
-                'import_name': 'py3Dmol',
-                'description': '分子3D可视化库',
-                'required': True,
-                'install_cmd': 'pip install py3Dmol'
-            },
-            {
-                'name': 'IPython',
-                'import_name': 'IPython',
-                'description': 'Jupyter支持',
-                'required': False,
-                'install_cmd': 'pip install IPython'
-            }
-        ]
-        
-        for dep in dependencies:
-            try:
-                module = __import__(dep['import_name'])
-                version = getattr(module, '__version__', '未知版本')
-                logger.info(f"✅ {dep['name']} ({dep['description']}): {version}")
-                
-                if dep['name'] == 'py3Dmol':
-                    self._py3dmol_available = True
-                    
-            except ImportError:
-                logger.warning(f"❌ {dep['name']} ({dep['description']}): 未安装")
-                if dep['required']:
-                    self._missing_deps.append(dep)
-        
-        if self._missing_deps:
-            logger.warning(f"🔧 缺少必需依赖: {[dep['name'] for dep in self._missing_deps]}")
-            logger.info(self._get_installation_guide())
-        else:
-            logger.info("✅ py3Dmol渲染工具依赖检查通过")
-    
-    def _get_installation_guide(self) -> str:
-        """获取安装指南"""
-        if not self._missing_deps:
-            return "所有依赖已安装"
-        
-        guide = "📦 py3Dmol依赖安装指南:\n"
-        guide += "=" * 40 + "\n"
-        
-        for dep in self._missing_deps:
-            guide += f"• {dep['name']}: {dep['install_cmd']}\n"
-        
-        # 一键安装命令
-        install_cmds = [dep['install_cmd'] for dep in self._missing_deps]
-        if platform.system() == "Windows":
-            guide += f"\n一键安装: {'; '.join(install_cmds)}\n"
-        else:
-            guide += f"\n一键安装: {' && '.join(install_cmds)}\n"
-        
-        guide += "\n🔗 更多信息:\n"
-        guide += "• py3Dmol文档: https://3dmol.csb.pitt.edu/\n"
-        guide += "• py3Dmol GitHub: https://github.com/3dmol/3Dmol.js\n"
-        
-        return guide
+        try:
+            import py3Dmol
+            version = getattr(py3Dmol, '__version__', '未知版本')
+            logger.info(f"✅ py3Dmol: {version}")
+            self._py3dmol_available = True
+        except ImportError:
+            logger.warning("❌ py3Dmol未安装，请运行: pip install py3Dmol")
+            self._py3dmol_available = False
     
     def _render_sync(self, code: str, output_format: str, width: int, height: int) -> Dict[str, Any]:
-        """同步渲染py3Dmol分子可视化"""
+        """同步渲染py3Dmol分子可视化（极简版）"""
         
         if not self._py3dmol_available:
-            missing_deps = ["py3Dmol"]
             return {
                 "success": False,
-                "error": "py3Dmol依赖不可用",
-                "installation_guide": self._get_installation_guide(),
-                "suggestion": "请先安装依赖: pip install py3Dmol"
+                "error": "py3Dmol依赖不可用，请安装: pip install py3Dmol"
             }
         
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -153,11 +95,11 @@ class Py3dmolRenderTool(BaseRenderTool):
                 code_file = temp_path / "molecule_code.py"
                 output_file = temp_path / f"output.{output_format}"
                 
-                # 预处理代码
-                processed_code = self._preprocess_code(code, output_file, output_format, width, height)
-                code_file.write_text(processed_code, encoding='utf-8')
+                # 生成极简的可执行代码
+                executable_code = self._create_executable_code(code, output_file, output_format, width, height)
+                code_file.write_text(executable_code, encoding='utf-8')
                 
-                logger.info(f"🚀 执行py3Dmol分子可视化渲染...")
+                logger.info("🚀 执行py3Dmol分子可视化渲染...")
                 
                 # 执行Python代码
                 result = subprocess.run(
@@ -179,9 +121,10 @@ class Py3dmolRenderTool(BaseRenderTool):
                 if not output_file.exists():
                     return {
                         "success": False,
-                        "error": "代码执行完成但未生成分子可视化文件"
+                        "error": "未生成输出文件"
                     }
                 
+                # 读取输出文件
                 if output_format == "html":
                     content = output_file.read_text(encoding='utf-8')
                     molecule_bytes = content.encode('utf-8')
@@ -191,10 +134,10 @@ class Py3dmolRenderTool(BaseRenderTool):
                 if len(molecule_bytes) == 0:
                     return {
                         "success": False,
-                        "error": "生成的分子可视化文件为空"
+                        "error": "生成的文件为空"
                     }
                 
-                logger.info(f"✅ py3Dmol分子可视化渲染成功，大小: {len(molecule_bytes)} bytes")
+                logger.info(f"✅ py3Dmol渲染成功，大小: {len(molecule_bytes)} bytes")
                 
                 return {
                     "success": True,
@@ -204,109 +147,66 @@ class Py3dmolRenderTool(BaseRenderTool):
             except subprocess.TimeoutExpired:
                 return {
                     "success": False,
-                    "error": "分子可视化渲染超时（60秒）"
+                    "error": "渲染超时（60秒）"
                 }
             except Exception as e:
                 return {
                     "success": False,
-                    "error": f"渲染过程发生错误: {str(e)}"
+                    "error": f"渲染错误: {str(e)}"
                 }
     
-    def _preprocess_code(self, code: str, output_file: Path, output_format: str, width: int, height: int) -> str:
-        """预处理py3Dmol代码，增强错误处理和中文支持"""
+    def _create_executable_code(self, user_code: str, output_file: Path, output_format: str, width: int, height: int) -> str:
+        """创建可执行的代码（极简版）"""
         
-        # 确保有必要的导入
-        imports = []
-        if 'import py3Dmol' not in code:
-            imports.append("import py3Dmol")
+        # 确保导入py3Dmol
+        imports = "import py3Dmol\n"
+        if 'import py3Dmol' in user_code:
+            imports = ""
         
-        # 添加异常处理导入
-        imports.append("import traceback")
-        imports.append("import os")
-        
-        imports_str = '\n'.join(imports) + '\n' if imports else ''
-        
-        # 检查用户代码中是否已经创建了viewer
-        has_viewer_creation = any(pattern in code for pattern in [
-            'py3Dmol.view(', 'view = py3Dmol.view', 'viewer = py3Dmol.view'
-        ])
-        
-        # 如果用户代码中没有创建viewer，我们需要添加
-        viewer_creation = ""
-        if not has_viewer_creation:
-            viewer_creation = f"""
-    # 创建py3Dmol viewer（如果用户代码中没有创建）
-    view = py3Dmol.view(width={width}, height={height})
-"""
-        
-        # 创建增强的保存逻辑
-        save_logic = f"""
-    # 增强的自动保存逻辑
+        # 极简的保存逻辑 - 修复Windows路径转义问题
+        output_file_str = str(output_file).replace('\\', '\\\\')  # 转义反斜杠
+        save_code = f"""
+# 自动保存输出
+try:
     # 查找viewer对象
     viewer_obj = None
-    if 'viewer' in locals():
-        viewer_obj = viewer
-    elif 'view' in locals():
-        viewer_obj = view
-    elif 'v' in locals():
-        viewer_obj = v
+    for var_name in ['view', 'viewer', 'v']:
+        if var_name in locals():
+            viewer_obj = locals()[var_name]
+            break
     
     if viewer_obj is None:
-        print("错误: 未找到py3Dmol viewer对象")
-        print("提示: 请确保代码中创建了viewer变量，例如:")
-        print("view = py3Dmol.view(width={width}, height={height})")
+        print("错误: 未找到viewer对象 (view, viewer, v)")
         exit(1)
     
+    output_path = r'{output_file_str}'
     if '{output_format}' == 'html':
-        # 生成增强的HTML（支持中文）
         html_content = viewer_obj._make_html()
-        
-        # 注入中文字体支持
-        font_css = '<style>body, div, span {font-family: "Microsoft YaHei", "SimHei", "SimSun", "Arial Unicode MS", "WenQuanYi Micro Hei", sans-serif !important;}</style>'
-        if '<head>' in html_content:
-            html_content = html_content.replace('<head>', '<head>\n' + font_css)
-        
-        # 确保UTF-8编码
-        if '<meta charset=' not in html_content.lower():
-            html_content = html_content.replace('<head>', '<head>\n    <meta charset="UTF-8">')
-        
-        # 自动插入<!DOCTYPE html>，避免Quirks Mode
-        if not html_content.lstrip().lower().startswith('<!doctype html>'):
-            html_content = '<!DOCTYPE html>\n' + html_content
-        
-        with open(r"{output_file}", 'w', encoding='utf-8') as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
     else:
-        # PNG输出
-        try:
-            viewer_obj.png(r"{output_file}")
-        except Exception as png_error:
-            print(f"PNG生成失败: {{png_error}}")
-            print("提示: PNG功能需要额外的依赖，建议使用HTML格式")
-            exit(1)
+        viewer_obj.png(output_path)
     
-    print("✅ 分子可视化已保存: " + str(r"{output_file}"))"""
-        
-        # 对用户代码进行缩进处理
-        indented_code = '\n'.join('    ' + line for line in code.split('\n'))
-        
-        processed_code = f"""
-{imports_str}
-
-try:
-{viewer_creation}
-    # 用户代码
-{indented_code}
-
-{save_logic}
-
-except ImportError as e:
-    print(f"❌ 导入错误: {{e}}")
-    print("请确保已安装py3Dmol: pip install py3Dmol")
-    exit(1)
+    print("保存成功:", output_path)
+    
 except Exception as e:
-    print(f"❌ 代码执行错误: {{e}}")
+    print(f"保存失败: {{e}}")
+    exit(1)
+"""
+        
+        # 组合最终代码 - 修复缩进问题
+        indented_user_code = '\n'.join('    ' + line for line in user_code.split('\n'))
+        indented_save_code = '\n'.join('    ' + line for line in save_code.split('\n'))
+        
+        final_code = f"""{imports}
+try:
+{indented_user_code}
+{indented_save_code}
+except Exception as e:
+    print(f"执行错误: {{e}}")
+    import traceback
     traceback.print_exc()
     exit(1)
 """
-        return processed_code 
+        
+        return final_code 
