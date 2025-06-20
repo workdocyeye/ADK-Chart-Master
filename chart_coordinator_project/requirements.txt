@@ -48,6 +48,12 @@ pillow>=10.0.0             # 图像处理库 (保存、转换格式)
 statsmodels>=0.14.0        # 统计模型 (用于生成趋势线等)
 typing-extensions>=4.5.0   # 兼容旧版本Python的类型提示
 
+# --- 补充依赖 (Additional Dependencies) ---
+jupyter>=1.0.0             # Jupyter环境支持 (py3Dmol需要)
+ipython>=8.0.0             # IPython环境支持
+importlib-metadata>=4.0.0  # 元数据导入支持
+zipp>=3.0.0                # 压缩文件处理
+
 # ===================================================================
 # 系统级依赖 (System-level Dependencies)
 # ===================================================================
