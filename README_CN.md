@@ -378,11 +378,7 @@ def _get_declaration(self) -> Optional[types.FunctionDeclaration]:
 - **V1.2计划**: 更多渲染工具集成(Bokeh、Altair等)
 - **V2.0愿景**: 实时协作、云端部署、API服务化
 
-### 📈 测试覆盖与验证
-本项目通过了全面的功能测试，具体测试用例参见 [`COMPREHENSIVE_TESTING_GUIDE.md`](COMPREHENSIVE_TESTING_GUIDE.md)：
-- **工具专项测试**: 15个工具×3个难度等级 = 45个测试用例
-- **AI路由测试**: 7个语义模糊提示词智能路由验证
-- **生产环境验证**: Windows 11 + PowerShell 环境完整测试
+
 
 ---
 
