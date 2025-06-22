@@ -82,16 +82,12 @@ mmdc --version
 #### 第四步：环境变量配置
 
 ```powershell
-# 进入 chart_coordinator_project 目录
-cd chart_coordinator_project
+# 在 chart_coordinator_project 目录下，复制环境变量模板
+copy .env.example .env
 
-# 通过重命名去掉 .example 后缀创建正式的环境变量文件
-ren .env.example .env
-
-# 编辑 .env 文件，配置你的 Deepseek API 密钥
-# 将占位符：DEEPSEEK_API_KEY=your-actual-deepseek-api-key-here
-# 替换为实际密钥：DEEPSEEK_API_KEY=sk-你的真实API密钥
-notepad .env
+# 编辑 .env 文件，设置你的 Deepseek API 密钥
+# 将 DEEPSEEK_API_KEY=your-actual-deepseek-api-key-here 
+# 替换为 DEEPSEEK_API_KEY=sk-你的真实密钥
 ```
 
 > **获取 Deepseek API Key**：访问 [https://platform.deepseek.com/](https://platform.deepseek.com/) 注册并获取 API 密钥。
