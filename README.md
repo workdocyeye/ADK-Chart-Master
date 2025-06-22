@@ -84,12 +84,16 @@ mmdc --version
 #### Step 4: Environment Variables Configuration
 
 ```powershell
-# In chart_coordinator_project directory, copy environment template
-copy .env.example .env
+# Navigate to chart_coordinator_project directory
+cd chart_coordinator_project
 
-# Edit .env file, set your Deepseek API key
-# Replace DEEPSEEK_API_KEY=your-actual-deepseek-api-key-here 
-# with DEEPSEEK_API_KEY=sk-your-real-key
+# Create .env file by removing .example suffix from template
+ren .env.example .env
+
+# Edit .env file and configure your Deepseek API key
+# Replace the placeholder: DEEPSEEK_API_KEY=your-actual-deepseek-api-key-here
+# With your actual API key: DEEPSEEK_API_KEY=sk-your-real-api-key-here
+notepad .env
 ```
 
 > **Get Deepseek API Key**: Visit [https://platform.deepseek.com/](https://platform.deepseek.com/) to register and obtain API key.
