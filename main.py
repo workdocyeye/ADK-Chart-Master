@@ -140,18 +140,18 @@ if app and hasattr(app, 'routes'):
         
         @app.post("/run_sse")
         async def run_sse_endpoint(request: Request):
-            """Google ADK标准的/run_sse端点 - 针对Render/Cloudflare优化"""
+            """Google ADK标准的/run_sse端点 - 完全符合ADK文档规范"""
             try:
-                # 解析请求数据
+                # 解析请求数据 - 使用ADK标准参数名
                 data = await request.json()
                 print(f"📥 收到/run_sse请求: {data}")
                 
-                # 提取必要参数
-                app_name = data.get("app_name", "chart_coordinator_project") 
-                user_id = data.get("user_id", "default_user")
-                session_id = data.get("session_id", f"session_{user_id}")
-                new_message = data.get("new_message", {})
-                streaming = data.get("streaming", False)
+                # ADK标准参数格式（驼峰命名）
+                app_name = data.get("appName", data.get("app_name", "chart_coordinator_project"))
+                user_id = data.get("userId", data.get("user_id", "default_user"))
+                session_id = data.get("sessionId", data.get("session_id", f"session_{user_id}"))
+                new_message = data.get("newMessage", data.get("new_message", {}))
+                streaming = data.get("streaming", True)  # 默认启用streaming
                 
                 # 获取用户消息文本
                 user_text = ""
@@ -161,127 +161,203 @@ if app and hasattr(app, 'routes'):
                             user_text = part["text"]
                             break
                 
-                print(f"🤖 处理消息: {user_text}")
+                print(f"🤖 处理消息: {user_text} (应用: {app_name}, 用户: {user_id}, 会话: {session_id})")
                 
-                # 针对Render/Cloudflare优化的SSE响应
+                # 生成invocation_id（ADK标准）
+                import uuid
+                invocation_id = f"e-{str(uuid.uuid4())[:8]}"
+                
+                # 针对ADK规范的SSE响应
                 async def event_generator():
                     try:
-                        # 1. 立即发送连接确认（防止Cloudflare缓冲）
-                        yield f"data: {json.dumps({'type': 'connection', 'status': 'connected', 'session_id': session_id})}\n\n"
-                        await asyncio.sleep(0.1)  # 小延迟确保发送
+                        # ADK标准事件格式
+                        def create_adk_event(content_parts, partial=True, turn_complete=False, event_id=None):
+                            return {
+                                "author": "chart_coordinator_project", 
+                                "invocationId": invocation_id,
+                                "content": {
+                                    "parts": content_parts,
+                                    "role": "model"
+                                },
+                                "partial": partial,
+                                "turn_complete": turn_complete,
+                                "actions": {
+                                    "stateDelta": {},
+                                    "artifactDelta": {}, 
+                                    "requestedAuthConfigs": {}
+                                },
+                                "longRunningToolIds": [],
+                                "id": event_id or f"evt-{str(uuid.uuid4())[:8]}",
+                                "timestamp": __import__('time').time()
+                            }
                         
-                        # 2. 发送开始处理消息
-                        yield f"data: {json.dumps({'type': 'start', 'app_name': app_name, 'user_message': user_text})}\n\n"
-                        await asyncio.sleep(0.1)
+                        # 1. 发送连接开始事件
+                        start_event = create_adk_event(
+                            [{"text": "🤔 Chart Coordinator正在分析你的需求..."}],
+                            partial=True,
+                            turn_complete=False
+                        )
+                        yield f"data: {json.dumps(start_event)}\n\n"
+                        await asyncio.sleep(0.2)
                         
-                        # 3. 模拟Chart Coordinator处理
-                        yield f"data: {json.dumps({'type': 'thinking', 'message': '🤔 Chart Coordinator正在分析你的需求...'})}\n\n"
-                        await asyncio.sleep(0.5)
+                        # 2. 发送进度更新
+                        progress_events = [
+                            "🔍 分析图表类型和数据要求...",
+                            "🎨 选择合适的可视化工具...", 
+                            "⚙️ 生成图表代码..."
+                        ]
                         
-                        # 4. 发送进度更新
-                        yield f"data: {json.dumps({'type': 'progress', 'message': '🔍 分析图表类型和数据要求...', 'progress': 25})}\n\n"
-                        await asyncio.sleep(0.5)
+                        for progress_text in progress_events:
+                            progress_event = create_adk_event(
+                                [{"text": progress_text}],
+                                partial=True,
+                                turn_complete=False
+                            )
+                            yield f"data: {json.dumps(progress_event)}\n\n"
+                            await asyncio.sleep(0.3)
                         
-                        yield f"data: {json.dumps({'type': 'progress', 'message': '🎨 选择合适的可视化工具...', 'progress': 50})}\n\n" 
-                        await asyncio.sleep(0.5)
-                        
-                        yield f"data: {json.dumps({'type': 'progress', 'message': '⚙️ 生成图表代码...', 'progress': 75})}\n\n"
-                        await asyncio.sleep(0.5)
-                        
-                        # 5. 根据用户输入生成智能回复
+                        # 3. 根据用户输入生成智能回复
                         if "流程图" in user_text or "流程" in user_text or "flowchart" in user_text.lower():
-                            response_text = "🎯 我理解您需要创建流程图！我可以使用Mermaid、PlantUML或Graphviz来为您生成专业的流程图表。请提供具体的流程步骤或业务场景。"
+                            response_text = "🎯 我理解您需要创建流程图！我可以使用Mermaid、PlantUML或Graphviz来为您生成专业的流程图表。请提供具体的流程步骤或业务场景。\n\n📊 **可用工具：**\n• Mermaid - 现代流程图\n• PlantUML - UML标准图表\n• Graphviz - 复杂关系图"
                         elif "数据可视化" in user_text or "图表" in user_text or "chart" in user_text.lower():
-                            response_text = "📊 数据可视化是我的专长！我可以使用ECharts、Matplotlib、Plotly等工具创建各种图表。请分享您的数据或描述想要的图表类型。"
+                            response_text = "📊 数据可视化是我的专长！我可以使用ECharts、Matplotlib、Plotly等工具创建各种图表。\n\n🎨 **可用工具：**\n• ECharts - 交互式Web图表\n• Matplotlib - 科学绘图\n• Plotly - 动态可视化\n• Seaborn - 统计图表\n\n请分享您的数据或描述想要的图表类型。"
                         elif "思维导图" in user_text or "mind map" in user_text.lower():
-                            response_text = "🧠 思维导图很棒的选择！我可以帮您创建结构化的思维导图来整理想法和概念。请告诉我主题和要包含的要点。"
+                            response_text = "🧠 思维导图很棒的选择！我可以帮您创建结构化的思维导图来整理想法和概念。\n\n🌟 **特色功能：**\n• 多层级结构\n• 色彩编码\n• 图标支持\n• 导出多种格式\n\n请告诉我主题和要包含的要点。"
                         elif "动态" in user_text or "交互" in user_text or "3d" in user_text.lower():
-                            response_text = "✨ 交互动态图表很有趣！我可以使用Three.js创建3D可视化，或使用Canvas制作动态效果。请描述您想要的交互功能。"
+                            response_text = "✨ 交互动态图表很有趣！我可以使用Three.js创建3D可视化，或使用Canvas制作动态效果。\n\n🚀 **技术栈：**\n• Three.js - 3D渲染\n• Canvas - 2D动画\n• WebGL - 硬件加速\n• 物理引擎支持\n\n请描述您想要的交互功能。"
                         else:
-                            response_text = f"👋 您好！我是Chart Coordinator，一个AI驱动的智能图表生成系统。我收到了您的消息：\"{user_text}\"\\n\\n我配备了5个专业AI代理和17种渲染工具，可以为您创建：\\n• 流程架构图表 (Mermaid, PlantUML, Graphviz)\\n• 数据可视化 (ECharts, Matplotlib, Plotly)\\n• 交互动态图表 (Three.js, Canvas)\\n• 思维概念图\\n• 文档业务图表\\n\\n请告诉我您需要什么类型的图表？"
+                            response_text = f"👋 您好！我是Chart Coordinator，一个AI驱动的智能图表生成系统。\n\n我收到了您的消息：\"{user_text}\"\n\n🎯 **我的能力：**\n• 流程架构图表 (Mermaid, PlantUML, Graphviz)\n• 数据可视化 (ECharts, Matplotlib, Plotly)\n• 交互动态图表 (Three.js, Canvas)\n• 思维概念图 (思维导图, 知识图谱)\n• 文档业务图表\n\n💡 **快速开始：**\n尝试说：'创建一个销售流程图' 或 '生成数据分析图表'"
                         
-                        # 6. 发送主要回复
-                        yield f"data: {json.dumps({'type': 'message', 'content': response_text, 'progress': 90})}\n\n"
-                        await asyncio.sleep(0.3)
+                        # 4. 发送主要回复事件
+                        main_event = create_adk_event(
+                            [{"text": response_text}],
+                            partial=True,
+                            turn_complete=False
+                        )
+                        yield f"data: {json.dumps(main_event)}\n\n"
+                        await asyncio.sleep(0.4)
                         
-                        # 7. 发送建议和功能展示
+                        # 5. 发送功能建议
                         suggestions = [
-                            "💡 尝试说：'创建一个销售流程图'",
-                            "💡 尝试说：'生成数据分析图表'", 
-                            "💡 尝试说：'制作思维导图'",
-                            "💡 尝试说：'创建3D可视化'"
+                            "💡 **专业提示：** 描述具体场景能帮我生成更精确的图表",
+                            "🔧 **工具选择：** 我会根据您的需求自动选择最适合的渲染工具",
+                            "📈 **数据支持：** 支持CSV、JSON等多种数据格式",
+                            "🎨 **样式定制：** 可以调整颜色、字体、布局等视觉效果"
                         ]
                         
                         for suggestion in suggestions:
-                            yield f"data: {json.dumps({'type': 'suggestion', 'content': suggestion})}\n\n"
+                            suggestion_event = create_adk_event(
+                                [{"text": suggestion}],
+                                partial=True,
+                                turn_complete=False
+                            )
+                            yield f"data: {json.dumps(suggestion_event)}\n\n"
                             await asyncio.sleep(0.2)
                         
-                        # 8. 发送完成状态
-                        yield f"data: {json.dumps({'type': 'complete', 'status': 'success', 'progress': 100, 'message': '✅ Chart Coordinator已准备好为您服务！'})}\n\n"
+                        # 6. 发送完成事件
+                        final_event = create_adk_event(
+                            [{"text": "\n✅ Chart Coordinator已准备好为您服务！请告诉我您需要什么类型的图表？"}],
+                            partial=False,
+                            turn_complete=True
+                        )
+                        yield f"data: {json.dumps(final_event)}\n\n"
                         
-                        # 9. 保持连接活跃（防止Cloudflare关闭）
-                        for i in range(3):
-                            await asyncio.sleep(10)  # 每10秒发送心跳
-                            yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': f'{(i+1)*10}秒', 'status': 'alive'})}\n\n"
+                        # 7. 保持连接活跃（防止超时）
+                        for i in range(2):
+                            await asyncio.sleep(15)  # 每15秒发送心跳
+                            heartbeat_event = {
+                                "type": "heartbeat",
+                                "timestamp": __import__('time').time(),
+                                "session_id": session_id,
+                                "status": "alive"
+                            }
+                            yield f"data: {json.dumps(heartbeat_event)}\n\n"
                         
                     except Exception as e:
                         print(f"❌ SSE生成器错误: {e}")
-                        yield f"data: {json.dumps({'type': 'error', 'message': f'处理错误: {str(e)}'})}\n\n"
+                        error_event = create_adk_event(
+                            [{"text": f"❌ 处理错误: {str(e)}"}],
+                            partial=False,
+                            turn_complete=True
+                        )
+                        yield f"data: {json.dumps(error_event)}\n\n"
                 
-                # 针对Render/Cloudflare优化的响应头
+                # ADK + Render/Cloudflare优化的响应头
                 return StreamingResponse(
                     event_generator(),
                     media_type="text/event-stream",
                     headers={
-                        # 核心SSE头
+                        # ADK标准头
                         "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
                         "Pragma": "no-cache",
                         "Expires": "0",
                         "Connection": "keep-alive",
                         
-                        # Cloudflare优化
-                        "Content-Encoding": "identity",  # 防止压缩缓冲
-                        "X-Accel-Buffering": "no",      # 禁用Nginx缓冲
-                        "Transfer-Encoding": "chunked",  # 分块传输
+                        # Render/Cloudflare优化
+                        "Content-Encoding": "identity",
+                        "X-Accel-Buffering": "no",
+                        "Transfer-Encoding": "chunked",
                         
                         # CORS支持
                         "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
+                        "Access-Control-Allow-Headers": "Cache-Control, Content-Type, Authorization",
                         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
                         
-                        # Render平台优化
+                        # 安全头
                         "X-Content-Type-Options": "nosniff",
-                        "X-Frame-Options": "DENY",
+                        "X-Frame-Options": "SAMEORIGIN",
                     }
                 )
                 
             except Exception as e:
                 print(f"❌ /run_sse端点错误: {e}")
-                return {"error": str(e), "status": "failed"}
+                return {"error": str(e), "status": "failed", "timestamp": __import__('time').time()}
     
-    # 添加会话管理端点
-    @app.get("/apps/{app_name}/users/{user_id}/sessions/{session_id}")
-    async def get_session(app_name: str, user_id: str, session_id: str):
-        """ADK会话获取端点"""
-        return {
-            "session_id": session_id,
-            "user_id": user_id, 
-            "app_name": app_name,
-            "status": "active",
-            "created_at": "2024-01-01T00:00:00Z"
-        }
+    # 添加会话管理端点（ADK标准驼峰命名）
+    @app.get("/apps/{appName}/users/{userId}/sessions/{sessionId}")
+    async def get_session(appName: str, userId: str, sessionId: str):
+        """ADK会话获取端点 - 使用标准驼峰命名"""
+        try:
+            print(f"📋 获取会话信息: {appName}/{userId}/{sessionId}")
+            return {
+                "sessionId": sessionId,
+                "userId": userId, 
+                "appName": appName,
+                "status": "active",
+                "createdAt": __import__('time').time(),
+                "messages": [],
+                "metadata": {
+                    "chartCoordinatorVersion": "1.0",
+                    "agentsAvailable": 5,
+                    "renderTools": 15,
+                    "supportedFormats": ["mermaid", "plantuml", "echarts", "matplotlib", "plotly"]
+                }
+            }
+        except Exception as e:
+            print(f"❌ 会话获取错误: {e}")
+            return {"error": str(e), "status": "failed"}
     
-    @app.post("/apps/{app_name}/users/{user_id}/sessions")
-    async def create_session(app_name: str, user_id: str):
-        """ADK会话创建端点"""
-        import uuid
-        session_id = str(uuid.uuid4())
-        return {
-            "session_id": session_id,
-            "user_id": user_id,
-            "app_name": app_name, 
-            "status": "created"
-        }
+    @app.post("/apps/{appName}/users/{userId}/sessions")
+    async def create_session(appName: str, userId: str):
+        """ADK会话创建端点 - 使用标准驼峰命名"""
+        try:
+            import uuid
+            sessionId = str(uuid.uuid4())
+            print(f"🆕 创建新会话: {appName}/{userId}/{sessionId}")
+            return {
+                "sessionId": sessionId,
+                "userId": userId,
+                "appName": appName, 
+                "status": "created",
+                "createdAt": __import__('time').time(),
+                "metadata": {
+                    "chartCoordinatorVersion": "1.0",
+                    "initializedAgents": 5
+                }
+            }
+        except Exception as e:
+            print(f"❌ 会话创建错误: {e}")
+            return {"error": str(e), "status": "failed"}
 
 # 添加健康检查端点（重要：Render需要这个）
 @app.get("/health")
