@@ -126,6 +126,83 @@ if app is None:
     print("❌ 创建FastAPI应用失败，使用最小配置")
     app = FastAPI()
 
+# 添加Google ADK标准端点
+print("🔧 添加缺失的Google ADK标准端点...")
+
+# 如果ADK应用创建成功，检查是否有/run_sse端点
+if app and hasattr(app, 'routes'):
+    existing_routes = [route.path for route in app.routes if hasattr(route, 'path')]
+    print(f"📋 现有路由: {existing_routes}")
+    
+    # 检查是否缺少关键端点
+    if '/run_sse' not in existing_routes:
+        print("⚠️ 缺少 /run_sse 端点，手动添加...")
+        
+        @app.post("/run_sse")
+        async def run_sse_endpoint(request: Request):
+            """Google ADK标准的/run_sse端点"""
+            try:
+                # 解析请求数据
+                data = await request.json()
+                print(f"📥 收到/run_sse请求: {data}")
+                
+                # 提取必要参数
+                app_name = data.get("app_name", "chart_coordinator_project") 
+                user_id = data.get("user_id", "default_user")
+                session_id = data.get("session_id", f"session_{user_id}")
+                new_message = data.get("new_message", {})
+                streaming = data.get("streaming", False)
+                
+                # 返回SSE响应
+                async def event_generator():
+                    yield f"data: {json.dumps({'type': 'start', 'app_name': app_name, 'session_id': session_id})}\n\n"
+                    
+                    # 模拟agent响应
+                    response_text = f"Chart Coordinator收到消息: {new_message.get('parts', [{}])[0].get('text', '')}"
+                    yield f"data: {json.dumps({'type': 'message', 'content': response_text})}\n\n"
+                    
+                    yield f"data: {json.dumps({'type': 'end', 'status': 'completed'})}\n\n"
+                
+                return StreamingResponse(
+                    event_generator(),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache, no-transform",
+                        "Connection": "keep-alive", 
+                        "Access-Control-Allow-Origin": "*",
+                        "Content-Encoding": "identity",
+                        "X-Accel-Buffering": "no",
+                    }
+                )
+                
+            except Exception as e:
+                print(f"❌ /run_sse错误: {e}")
+                return {"error": str(e)}
+    
+    # 添加会话管理端点
+    @app.get("/apps/{app_name}/users/{user_id}/sessions/{session_id}")
+    async def get_session(app_name: str, user_id: str, session_id: str):
+        """ADK会话获取端点"""
+        return {
+            "session_id": session_id,
+            "user_id": user_id, 
+            "app_name": app_name,
+            "status": "active",
+            "created_at": "2024-01-01T00:00:00Z"
+        }
+    
+    @app.post("/apps/{app_name}/users/{user_id}/sessions")
+    async def create_session(app_name: str, user_id: str):
+        """ADK会话创建端点"""
+        import uuid
+        session_id = str(uuid.uuid4())
+        return {
+            "session_id": session_id,
+            "user_id": user_id,
+            "app_name": app_name, 
+            "status": "created"
+        }
+
 # 添加健康检查端点（重要：Render需要这个）
 @app.get("/health")
 async def health_check():
