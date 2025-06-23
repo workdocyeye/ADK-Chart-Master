@@ -15,7 +15,7 @@ flask-cors>=4.0.0           # 跨域支持
 
 # --- 核心框架 (Core Framework) ---
 google-genai>=0.7.0          # Google ADK/Gemini 核心
-# google-adk>=0.1.0          # 通过git安装最新版本
+google-adk>=0.1.0            # Google ADK Python SDK (官方PyPI版本)
 python-dotenv>=1.0.0       # 用于加载 .env 环境变量
 litellm>=1.0.0                # ADK依赖的LiteLLM库
 uvicorn>=0.30.0              # ASGI服务器，用于运行FastAPI应用

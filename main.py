@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Chart Coordinator - Google ADK Standard FastAPI Deployment
-符合Google ADK官方标准的FastAPI部署文件
+Chart Coordinator - Google ADK Production Deployment
+Google ADK标准生产级部署文件
 
 为Google ADK Hackathon设计的生产级部署配置
-从项目根目录启动，模拟 'adk web' 行为
+使用官方Google ADK Python SDK
 """
 
 import os
@@ -17,13 +17,21 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from google.adk.core import Agent
-from google.adk.core.runners import InMemoryRunner
-from google.adk.core.session_service import SessionService
-from google.adk.core.config import RunConfig
-from google.adk.core.content import Content, Part
-from google.adk.core.live_request_queue import LiveRequestQueue
-import base64
+
+# 正确的Google ADK导入 - 基于官方文档
+try:
+    from google.adk.agents import Agent
+    from google.adk.core.runners import InMemoryRunner
+    ADK_AVAILABLE = True
+    print("✅ Google ADK导入成功")
+except ImportError as e:
+    print(f"⚠️ Google ADK导入失败: {e}")
+    print("📦 请安装: pip install google-adk")
+    ADK_AVAILABLE = False
+
+import uuid
+import time
+from typing import Dict, Any
 
 # 全局变量
 AGENT_DIR = "."
@@ -55,7 +63,7 @@ def load_environment():
                             print(f"🔧 设置环境变量: {key}")
             break
     else:
-        print("⚠️ 未找到.env文件，使用Render环境变量")
+        print("⚠️ 未找到.env文件，使用系统环境变量")
 
     # 验证关键环境变量
     required_vars = ["DEEPSEEK_API_KEY"]
@@ -83,111 +91,137 @@ else:
 # 创建FastAPI应用
 app = FastAPI(title="Chart Coordinator", description="AI驱动的智能图表生成系统")
 
-# 如果root_agent存在，包装为ADK兼容的代理
-if root_agent:
+# 会话管理类
+class Session:
+    def __init__(self, user_id: str):
+        self.user_id = user_id
+        self.session_id = str(uuid.uuid4())
+        self.created_at = time.time()
+        self.messages = []
+        self.is_active = True
+
+# 如果root_agent存在且ADK可用，设置Google ADK标准处理逻辑
+if root_agent and ADK_AVAILABLE:
     try:
-        # 使用ADK标准方式启动代理会话
-        async def start_agent_session(user_id: str, is_audio: bool = False):
-            """启动代理会话 - 完全按照ADK官方文档实现"""
-            
-            # 创建Runner
-            runner = InMemoryRunner(
-                app_name=APP_NAME,
-                agent=root_agent,
-            )
-            
-            # 创建Session
-            session = await runner.session_service.create_session(
-                app_name=APP_NAME,
-                user_id=user_id,
-            )
-            
-            # 设置响应模态
-            modality = "AUDIO" if is_audio else "TEXT"
-            run_config = RunConfig(response_modalities=[modality])
-            
-            # 创建LiveRequestQueue
-            live_request_queue = LiveRequestQueue()
-            
-            # 启动代理会话
-            live_events = runner.run_live(
-                session=session,
-                live_request_queue=live_request_queue,
-                run_config=run_config,
-            )
-            
-            return live_events, live_request_queue
+        async def process_message_with_agent(user_message: str, session: Session):
+            """使用Chart Coordinator代理处理消息 - 使用ADK标准方式"""
+            try:
+                # 使用ADK Runner处理消息
+                runner = InMemoryRunner(agent=root_agent)
+                
+                # 构建输入状态
+                input_state = {
+                    "messages": [
+                        {"role": "user", "content": user_message}
+                    ]
+                }
+                
+                # 调用代理图
+                result = await runner.run_async(input_state)
+                
+                # 获取代理响应
+                if "messages" in result and result["messages"]:
+                    last_message = result["messages"][-1]
+                    if hasattr(last_message, "content"):
+                        return last_message.content
+                    elif isinstance(last_message, dict) and "content" in last_message:
+                        return last_message["content"]
+                
+                return "抱歉，我无法处理您的请求。请重试。"
+                
+            except Exception as e:
+                print(f"❌ ADK代理处理错误: {e}")
+                return f"处理请求时发生错误: {str(e)}"
 
-        async def agent_to_client_sse(live_events):
-            """代理到客户端的SSE通信 - 完全按照ADK官方文档实现"""
-            async for event in live_events:
-                # 如果对话完成或被中断，发送它
-                if event.turn_complete or event.interrupted:
-                    message = {
-                        "turn_complete": event.turn_complete,
-                        "interrupted": event.interrupted,
-                    }
-                    yield f"data: {json.dumps(message)}\n\n"
-                    print(f"[AGENT TO CLIENT]: {message}")
-                    continue
-
-                # 读取Content和它的第一个Part
-                part: Part = (
-                    event.content and event.content.parts and event.content.parts[0]
-                )
-                if not part:
-                    continue
-
-                # 如果是音频，发送Base64编码的音频数据
-                is_audio = part.inline_data and part.inline_data.mime_type.startswith("audio/pcm")
-                if is_audio:
-                    audio_data = part.inline_data and part.inline_data.data
-                    if audio_data:
-                        message = {
-                            "mime_type": "audio/pcm",
-                            "data": base64.b64encode(audio_data).decode("ascii")
-                        }
-                        yield f"data: {json.dumps(message)}\n\n"
-                        print(f"[AGENT TO CLIENT]: audio/pcm: {len(audio_data)} bytes.")
-                        continue
-
-                # 如果是文本且是部分文本，发送它
-                if part.text and event.partial:
+        async def agent_response_generator(user_message: str, session: Session):
+            """生成代理响应的流式输出 - ADK兼容格式"""
+            try:
+                response = await process_message_with_agent(user_message, session)
+                
+                # ADK风格的流式输出
+                words = response.split()
+                for i, word in enumerate(words):
+                    chunk = word + (" " if i < len(words) - 1 else "")
                     message = {
                         "mime_type": "text/plain",
-                        "data": part.text
+                        "data": chunk,
+                        "partial": True
                     }
                     yield f"data: {json.dumps(message)}\n\n"
-                    print(f"[AGENT TO CLIENT]: text/plain: {message}")
+                    await asyncio.sleep(0.05)  # 小延迟模拟流式输出
+                
+                # 发送完成信号 - ADK标准格式
+                complete_message = {
+                    "turn_complete": True,
+                    "interrupted": False
+                }
+                yield f"data: {json.dumps(complete_message)}\n\n"
+                
+            except Exception as e:
+                error_message = {
+                    "mime_type": "text/plain", 
+                    "data": f"❌ 生成响应时发生错误: {str(e)}"
+                }
+                yield f"data: {json.dumps(error_message)}\n\n"
+                
+                complete_message = {
+                    "turn_complete": True,
+                    "interrupted": False
+                }
+                yield f"data: {json.dumps(complete_message)}\n\n"
 
-        # ADK标准SSE端点
+        # ADK兼容SSE端点
         @app.get("/events/{user_id}")
         async def sse_endpoint(user_id: int, is_audio: str = "false"):
-            """ADK标准SSE端点 - 按照官方文档实现"""
+            """ADK兼容SSE端点 - 建立实时连接"""
             
-            # 启动代理会话
             user_id_str = str(user_id)
-            live_events, live_request_queue = await start_agent_session(user_id_str, is_audio == "true")
             
-            # 存储此用户的请求队列
-            active_sessions[user_id_str] = live_request_queue
+            # 创建会话
+            session = Session(user_id_str)
+            active_sessions[user_id_str] = {
+                "session": session,
+                "message_queue": asyncio.Queue(),
+                "connected": True
+            }
             
-            print(f"客户端 #{user_id} 通过SSE连接，音频模式: {is_audio}")
-            
-            def cleanup():
-                live_request_queue.close()
-                if user_id_str in active_sessions:
-                    del active_sessions[user_id_str]
-                print(f"客户端 #{user_id} 从SSE断开连接")
+            print(f"客户端 #{user_id} 通过SSE连接 (ADK模式)")
             
             async def event_generator():
                 try:
-                    async for data in agent_to_client_sse(live_events):
-                        yield data
+                    session_data = active_sessions[user_id_str]
+                    message_queue = session_data["message_queue"]
+                    
+                    while session_data["connected"]:
+                        try:
+                            # 等待新消息
+                            message = await asyncio.wait_for(message_queue.get(), timeout=30.0)
+                            
+                            # 生成ADK格式的代理响应
+                            async for chunk in agent_response_generator(message, session):
+                                yield chunk
+                                
+                        except asyncio.TimeoutError:
+                            # 发送ADK风格的心跳
+                            heartbeat = {
+                                "type": "heartbeat", 
+                                "timestamp": time.time(),
+                                "adk_status": "connected"
+                            }
+                            yield f"data: {json.dumps(heartbeat)}\n\n"
+                            continue
+                        except Exception as e:
+                            print(f"SSE事件生成错误: {e}")
+                            break
+                            
                 except Exception as e:
                     print(f"SSE流错误: {e}")
                 finally:
-                    cleanup()
+                    # 清理会话
+                    if user_id_str in active_sessions:
+                        active_sessions[user_id_str]["connected"] = False
+                        del active_sessions[user_id_str]
+                    print(f"客户端 #{user_id} 从SSE断开连接")
             
             return StreamingResponse(
                 event_generator(),
@@ -196,60 +230,236 @@ if root_agent:
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
                     "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "Cache-Control"
+                    "Access-Control-Allow-Headers": "Cache-Control",
+                    "X-ADK-Compatible": "true"
                 }
             )
 
-        # ADK标准消息发送端点
+        # ADK兼容消息发送端点
         @app.post("/send/{user_id}")
         async def send_message_endpoint(user_id: int, request: Request):
-            """ADK标准消息发送端点 - 按照官方文档实现"""
+            """ADK兼容消息发送端点"""
             try:
                 user_id_str = str(user_id)
                 
                 # 查找会话
                 if user_id_str not in active_sessions:
-                    return {"error": "会话不存在", "status": "failed"}
+                    return {"error": "会话不存在", "status": "failed", "adk_compatible": True}
                 
-                live_request_queue = active_sessions[user_id_str]
+                session_data = active_sessions[user_id_str]
+                
+                # 解析ADK格式消息
+                data = await request.json()
+                mime_type = data.get("mime_type", "text/plain")
+                message_data = data.get("data", "")
+                
+                print(f"[CLIENT TO AGENT] ADK用户 {user_id}: {message_data[:100]}...")
+                
+                # 处理文本消息
+                if mime_type == "text/plain":
+                    await session_data["message_queue"].put(message_data)
+                    return {
+                        "status": "已发送文本消息",
+                        "adk_compatible": True,
+                        "session_id": session_data["session"].session_id
+                    }
+                else:
+                    return {
+                        "error": f"暂不支持的MIME类型: {mime_type}", 
+                        "status": "failed",
+                        "adk_compatible": True
+                    }
+                    
+            except Exception as e:
+                print(f"❌ ADK发送消息错误: {e}")
+                return {"error": str(e), "status": "failed", "adk_compatible": True}
+
+        print("✅ Chart Coordinator代理已启用Google ADK标准SSE功能")
+        
+    except Exception as e:
+        print(f"❌ Google ADK代理集成失败: {e}")
+        print("🔄 尝试安装: pip install google-adk")
+
+# Fallback: 如果ADK不可用但root_agent存在，使用简化版本
+elif root_agent and not ADK_AVAILABLE:
+    try:
+        async def process_message_with_agent_fallback(user_message: str, session: Session):
+            """使用Chart Coordinator代理处理消息 - Fallback版本"""
+            try:
+                # 构建输入状态
+                input_state = {
+                    "messages": [
+                        {"role": "user", "content": user_message}
+                    ]
+                }
+                
+                # 调用代理图 (不使用ADK Runner)
+                result = await root_agent.ainvoke(input_state)
+                
+                # 获取代理响应
+                if "messages" in result and result["messages"]:
+                    last_message = result["messages"][-1]
+                    if hasattr(last_message, "content"):
+                        return last_message.content
+                    elif isinstance(last_message, dict) and "content" in last_message:
+                        return last_message["content"]
+                
+                return "抱歉，我无法处理您的请求。请重试。"
+                
+            except Exception as e:
+                print(f"❌ 代理处理错误 (Fallback): {e}")
+                return f"处理请求时发生错误: {str(e)}"
+
+        async def agent_response_generator_fallback(user_message: str, session: Session):
+            """生成代理响应的流式输出 - Fallback版本"""
+            try:
+                response = await process_message_with_agent_fallback(user_message, session)
+                
+                # 简化的流式输出
+                words = response.split()
+                for i, word in enumerate(words):
+                    chunk = word + (" " if i < len(words) - 1 else "")
+                    message = {
+                        "mime_type": "text/plain",
+                        "data": chunk
+                    }
+                    yield f"data: {json.dumps(message)}\n\n"
+                    await asyncio.sleep(0.05)
+                
+                # 发送完成信号
+                complete_message = {
+                    "turn_complete": True,
+                    "interrupted": False
+                }
+                yield f"data: {json.dumps(complete_message)}\n\n"
+                
+            except Exception as e:
+                error_message = {
+                    "mime_type": "text/plain", 
+                    "data": f"❌ 生成响应时发生错误: {str(e)}"
+                }
+                yield f"data: {json.dumps(error_message)}\n\n"
+                
+                complete_message = {
+                    "turn_complete": True,
+                    "interrupted": False
+                }
+                yield f"data: {json.dumps(complete_message)}\n\n"
+
+        # Fallback SSE端点
+        @app.get("/events/{user_id}")
+        async def sse_endpoint_fallback(user_id: int, is_audio: str = "false"):
+            """Fallback SSE端点"""
+            
+            user_id_str = str(user_id)
+            
+            # 创建会话
+            session = Session(user_id_str)
+            active_sessions[user_id_str] = {
+                "session": session,
+                "message_queue": asyncio.Queue(),
+                "connected": True
+            }
+            
+            print(f"客户端 #{user_id} 通过SSE连接 (Fallback模式)")
+            
+            async def event_generator():
+                try:
+                    session_data = active_sessions[user_id_str]
+                    message_queue = session_data["message_queue"]
+                    
+                    while session_data["connected"]:
+                        try:
+                            # 等待新消息
+                            message = await asyncio.wait_for(message_queue.get(), timeout=30.0)
+                            
+                            # 生成代理响应
+                            async for chunk in agent_response_generator_fallback(message, session):
+                                yield chunk
+                                
+                        except asyncio.TimeoutError:
+                            # 发送心跳
+                            heartbeat = {
+                                "type": "heartbeat", 
+                                "timestamp": time.time(),
+                                "fallback_mode": True
+                            }
+                            yield f"data: {json.dumps(heartbeat)}\n\n"
+                            continue
+                        except Exception as e:
+                            print(f"SSE事件生成错误: {e}")
+                            break
+                            
+                except Exception as e:
+                    print(f"SSE流错误: {e}")
+                finally:
+                    # 清理会话
+                    if user_id_str in active_sessions:
+                        active_sessions[user_id_str]["connected"] = False
+                        del active_sessions[user_id_str]
+                    print(f"客户端 #{user_id} 从SSE断开连接")
+            
+            return StreamingResponse(
+                event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Cache-Control",
+                    "X-Fallback-Mode": "true"
+                }
+            )
+
+        # Fallback消息发送端点
+        @app.post("/send/{user_id}")
+        async def send_message_endpoint_fallback(user_id: int, request: Request):
+            """Fallback消息发送端点"""
+            try:
+                user_id_str = str(user_id)
+                
+                # 查找会话
+                if user_id_str not in active_sessions:
+                    return {"error": "会话不存在", "status": "failed", "fallback_mode": True}
+                
+                session_data = active_sessions[user_id_str]
                 
                 # 解析消息
                 data = await request.json()
                 mime_type = data.get("mime_type", "text/plain")
                 message_data = data.get("data", "")
                 
-                print(f"[CLIENT TO AGENT] 用户 {user_id}: {mime_type} - {message_data[:100]}...")
+                print(f"[CLIENT TO AGENT] Fallback用户 {user_id}: {message_data[:100]}...")
                 
                 # 处理文本消息
                 if mime_type == "text/plain":
-                    content = Content(parts=[Part.from_text(message_data)])
-                    await live_request_queue.send_content(content)
-                    return {"status": "已发送文本消息"}
-                
-                # 处理音频消息
-                elif mime_type == "audio/pcm":
-                    try:
-                        audio_data = base64.b64decode(message_data)
-                        blob = Part.from_bytes(audio_data, mime_type="audio/pcm")
-                        await live_request_queue.send_realtime(blob)
-                        return {"status": "已发送音频消息"}
-                    except Exception as e:
-                        return {"error": f"音频处理错误: {str(e)}", "status": "failed"}
-                
+                    await session_data["message_queue"].put(message_data)
+                    return {
+                        "status": "已发送文本消息",
+                        "fallback_mode": True,
+                        "session_id": session_data["session"].session_id
+                    }
                 else:
-                    return {"error": f"不支持的MIME类型: {mime_type}", "status": "failed"}
+                    return {
+                        "error": f"暂不支持的MIME类型: {mime_type}", 
+                        "status": "failed",
+                        "fallback_mode": True
+                    }
                     
             except Exception as e:
-                print(f"❌ 发送消息错误: {e}")
-                return {"error": str(e), "status": "failed"}
+                print(f"❌ Fallback发送消息错误: {e}")
+                return {"error": str(e), "status": "failed", "fallback_mode": True}
 
-        print("✅ Chart Coordinator代理已启用ADK标准SSE功能")
+        print("⚡ Chart Coordinator代理已启用Fallback SSE功能 (无ADK)")
         
     except Exception as e:
-        print(f"❌ ADK代理集成失败: {e}")
+        print(f"❌ Fallback代理集成失败: {e}")
 
 # 静态文件服务
-app.mount("/static", StaticFiles(directory="chart_coordinator_project/static"), name="static")
+static_path = Path("chart_coordinator_project/static")
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    print(f"✅ 静态文件服务已启用: {static_path}")
 
 # 根路径端点
 @app.get("/")
@@ -391,17 +601,24 @@ async def root():
 # 健康检查端点
 @app.get("/health")
 async def health_check():
-    """Render健康检查端点"""
+    """健康检查端点 - 显示系统状态"""
+    adk_status = "✅ Google ADK已启用" if ADK_AVAILABLE else "⚠️ ADK不可用，使用Fallback"
+    
     return {
         "status": "healthy",
         "service": "Chart Coordinator",
-        "framework": "Google ADK",
+        "framework": "Google ADK" if ADK_AVAILABLE else "FastAPI (Fallback)",
         "message": "服务运行正常",
         "working_dir": os.getcwd(),
         "agents_dir": AGENT_DIR,
         "port": os.environ.get("PORT", "10000"),
+        "adk_available": ADK_AVAILABLE,
+        "adk_status": adk_status,
+        "root_agent_loaded": root_agent is not None,
         "deepseek_api_configured": bool(os.environ.get("DEEPSEEK_API_KEY")),
-        "adk_standard": "✅ 使用ADK标准SSE实现"
+        "google_api_configured": bool(os.environ.get("GOOGLE_API_KEY")),
+        "active_sessions": len(active_sessions),
+        "deployment_target": "Render.com"
     }
 
 # 调试端点

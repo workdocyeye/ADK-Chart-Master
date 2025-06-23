@@ -27,8 +27,11 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       
-      # 安装Google ADK最新版本
-      pip install git+https://github.com/google/adk-python.git@main
+      # 安装Google ADK官方稳定版本
+      pip install google-adk
+      
+      # 验证ADK安装
+      python -c "from google.adk.agents import Agent; print('✅ Google ADK安装成功')"
       
       # 安装Node.js依赖
       npm install --legacy-peer-deps
