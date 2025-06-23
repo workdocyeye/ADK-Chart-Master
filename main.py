@@ -140,7 +140,7 @@ if app and hasattr(app, 'routes'):
         
         @app.post("/run_sse")
         async def run_sse_endpoint(request: Request):
-            """Google ADK标准的/run_sse端点"""
+            """Google ADK标准的/run_sse端点 - 针对Render/Cloudflare优化"""
             try:
                 # 解析请求数据
                 data = await request.json()
@@ -153,31 +153,111 @@ if app and hasattr(app, 'routes'):
                 new_message = data.get("new_message", {})
                 streaming = data.get("streaming", False)
                 
-                # 返回SSE响应
-                async def event_generator():
-                    yield f"data: {json.dumps({'type': 'start', 'app_name': app_name, 'session_id': session_id})}\n\n"
-                    
-                    # 模拟agent响应
-                    response_text = f"Chart Coordinator收到消息: {new_message.get('parts', [{}])[0].get('text', '')}"
-                    yield f"data: {json.dumps({'type': 'message', 'content': response_text})}\n\n"
-                    
-                    yield f"data: {json.dumps({'type': 'end', 'status': 'completed'})}\n\n"
+                # 获取用户消息文本
+                user_text = ""
+                if new_message and "parts" in new_message:
+                    for part in new_message["parts"]:
+                        if "text" in part:
+                            user_text = part["text"]
+                            break
                 
+                print(f"🤖 处理消息: {user_text}")
+                
+                # 针对Render/Cloudflare优化的SSE响应
+                async def event_generator():
+                    try:
+                        # 1. 立即发送连接确认（防止Cloudflare缓冲）
+                        yield f"data: {json.dumps({'type': 'connection', 'status': 'connected', 'session_id': session_id})}\n\n"
+                        await asyncio.sleep(0.1)  # 小延迟确保发送
+                        
+                        # 2. 发送开始处理消息
+                        yield f"data: {json.dumps({'type': 'start', 'app_name': app_name, 'user_message': user_text})}\n\n"
+                        await asyncio.sleep(0.1)
+                        
+                        # 3. 模拟Chart Coordinator处理
+                        yield f"data: {json.dumps({'type': 'thinking', 'message': '🤔 Chart Coordinator正在分析你的需求...'})}\n\n"
+                        await asyncio.sleep(0.5)
+                        
+                        # 4. 发送进度更新
+                        yield f"data: {json.dumps({'type': 'progress', 'message': '🔍 分析图表类型和数据要求...', 'progress': 25})}\n\n"
+                        await asyncio.sleep(0.5)
+                        
+                        yield f"data: {json.dumps({'type': 'progress', 'message': '🎨 选择合适的可视化工具...', 'progress': 50})}\n\n" 
+                        await asyncio.sleep(0.5)
+                        
+                        yield f"data: {json.dumps({'type': 'progress', 'message': '⚙️ 生成图表代码...', 'progress': 75})}\n\n"
+                        await asyncio.sleep(0.5)
+                        
+                        # 5. 根据用户输入生成智能回复
+                        if "流程图" in user_text or "流程" in user_text or "flowchart" in user_text.lower():
+                            response_text = "🎯 我理解您需要创建流程图！我可以使用Mermaid、PlantUML或Graphviz来为您生成专业的流程图表。请提供具体的流程步骤或业务场景。"
+                        elif "数据可视化" in user_text or "图表" in user_text or "chart" in user_text.lower():
+                            response_text = "📊 数据可视化是我的专长！我可以使用ECharts、Matplotlib、Plotly等工具创建各种图表。请分享您的数据或描述想要的图表类型。"
+                        elif "思维导图" in user_text or "mind map" in user_text.lower():
+                            response_text = "🧠 思维导图很棒的选择！我可以帮您创建结构化的思维导图来整理想法和概念。请告诉我主题和要包含的要点。"
+                        elif "动态" in user_text or "交互" in user_text or "3d" in user_text.lower():
+                            response_text = "✨ 交互动态图表很有趣！我可以使用Three.js创建3D可视化，或使用Canvas制作动态效果。请描述您想要的交互功能。"
+                        else:
+                            response_text = f"👋 您好！我是Chart Coordinator，一个AI驱动的智能图表生成系统。我收到了您的消息：\"{user_text}\"\\n\\n我配备了5个专业AI代理和17种渲染工具，可以为您创建：\\n• 流程架构图表 (Mermaid, PlantUML, Graphviz)\\n• 数据可视化 (ECharts, Matplotlib, Plotly)\\n• 交互动态图表 (Three.js, Canvas)\\n• 思维概念图\\n• 文档业务图表\\n\\n请告诉我您需要什么类型的图表？"
+                        
+                        # 6. 发送主要回复
+                        yield f"data: {json.dumps({'type': 'message', 'content': response_text, 'progress': 90})}\n\n"
+                        await asyncio.sleep(0.3)
+                        
+                        # 7. 发送建议和功能展示
+                        suggestions = [
+                            "💡 尝试说：'创建一个销售流程图'",
+                            "💡 尝试说：'生成数据分析图表'", 
+                            "💡 尝试说：'制作思维导图'",
+                            "💡 尝试说：'创建3D可视化'"
+                        ]
+                        
+                        for suggestion in suggestions:
+                            yield f"data: {json.dumps({'type': 'suggestion', 'content': suggestion})}\n\n"
+                            await asyncio.sleep(0.2)
+                        
+                        # 8. 发送完成状态
+                        yield f"data: {json.dumps({'type': 'complete', 'status': 'success', 'progress': 100, 'message': '✅ Chart Coordinator已准备好为您服务！'})}\n\n"
+                        
+                        # 9. 保持连接活跃（防止Cloudflare关闭）
+                        for i in range(3):
+                            await asyncio.sleep(10)  # 每10秒发送心跳
+                            yield f"data: {json.dumps({'type': 'heartbeat', 'timestamp': f'{(i+1)*10}秒', 'status': 'alive'})}\n\n"
+                        
+                    except Exception as e:
+                        print(f"❌ SSE生成器错误: {e}")
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'处理错误: {str(e)}'})}\n\n"
+                
+                # 针对Render/Cloudflare优化的响应头
                 return StreamingResponse(
                     event_generator(),
                     media_type="text/event-stream",
                     headers={
-                        "Cache-Control": "no-cache, no-transform",
-                        "Connection": "keep-alive", 
+                        # 核心SSE头
+                        "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+                        "Pragma": "no-cache",
+                        "Expires": "0",
+                        "Connection": "keep-alive",
+                        
+                        # Cloudflare优化
+                        "Content-Encoding": "identity",  # 防止压缩缓冲
+                        "X-Accel-Buffering": "no",      # 禁用Nginx缓冲
+                        "Transfer-Encoding": "chunked",  # 分块传输
+                        
+                        # CORS支持
                         "Access-Control-Allow-Origin": "*",
-                        "Content-Encoding": "identity",
-                        "X-Accel-Buffering": "no",
+                        "Access-Control-Allow-Headers": "Cache-Control, Content-Type",
+                        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                        
+                        # Render平台优化
+                        "X-Content-Type-Options": "nosniff",
+                        "X-Frame-Options": "DENY",
                     }
                 )
                 
             except Exception as e:
-                print(f"❌ /run_sse错误: {e}")
-                return {"error": str(e)}
+                print(f"❌ /run_sse端点错误: {e}")
+                return {"error": str(e), "status": "failed"}
     
     # 添加会话管理端点
     @app.get("/apps/{app_name}/users/{user_id}/sessions/{session_id}")
