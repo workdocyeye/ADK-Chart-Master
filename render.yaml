@@ -51,14 +51,12 @@ services:
       
       echo "=== 构建完成 ==="
       
-    startCommand: |
-      cd chart_coordinator_project && 
-      python main.py
+    startCommand: python main.py
     
     # 环境变量配置
     envVars:
       - key: PYTHONPATH
-        value: /opt/render/project/src/chart_coordinator_project
+        value: /opt/render/project/src
       - key: NODE_PATH  
         value: /opt/render/project/src/chart_coordinator_project/node_modules
       - key: LOG_LEVEL
