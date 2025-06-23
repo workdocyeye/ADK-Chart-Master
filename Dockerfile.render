@@ -51,7 +51,7 @@ RUN cd chart_coordinator_project && \
 
 # 安装Node.js依赖
 RUN cd chart_coordinator_project && \
-    npm install --production --no-optional && \
+    npm install --production --legacy-peer-deps && \
     npm cache clean --force
 
 # 创建必要的目录

@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "echarts": "^5.6.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^25.0.0",
     "three": "^0.177.0",
     "canvas": "^2.11.2",
     "puppeteer": "^23.9.0"

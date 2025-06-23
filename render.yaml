@@ -31,7 +31,7 @@ services:
       pip install git+https://github.com/google/adk-python.git@main
       
       # 安装Node.js依赖
-      npm install
+      npm install --legacy-peer-deps
       
       # 验证关键依赖安装
       echo "=== 验证系统依赖 ==="
