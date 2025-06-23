@@ -13,18 +13,34 @@ import uvicorn
 from fastapi import FastAPI
 from google.adk.cli.fast_api import get_fast_api_app
 
-# 获取当前目录作为Agent目录
-AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Google ADK应用目录 - 指向chart_coordinator_project
+# 从项目根目录运行时，agents_dir应该是chart_coordinator_project
+AGENT_DIR = "chart_coordinator_project"
+
+print(f"📁 当前工作目录: {os.getcwd()}")
+print(f"📁 ADK应用目录: {AGENT_DIR}")
+
+# 验证应用目录存在
+if os.path.exists(AGENT_DIR):
+    print(f"✅ 找到应用目录: {AGENT_DIR}")
+    agent_file = os.path.join(AGENT_DIR, 'agent.py')
+    if os.path.exists(agent_file):
+        print(f"✅ 找到agent.py: {agent_file}")
+    else:
+        print(f"❌ 未找到agent.py: {agent_file}")
+else:
+    print(f"❌ 未找到应用目录: {AGENT_DIR}")
 
 # 使用Google ADK官方方法创建FastAPI应用
-# 根据ADK文档，使用最简单的参数
 try:
     app: FastAPI = get_fast_api_app(
         agents_dir=AGENT_DIR,
         web=True,  # 启用Web UI界面
     )
+    print("✅ Google ADK FastAPI应用创建成功")
 except Exception as e:
     print(f"❌ ADK FastAPI创建失败: {e}")
+    print(f"🔍 尝试的agents_dir: {AGENT_DIR}")
     # 备用方案：直接创建FastAPI应用
     from fastapi import FastAPI
     app = FastAPI(title="Chart Coordinator", description="AI驱动的智能图表生成系统")
@@ -33,7 +49,7 @@ except Exception as e:
     async def root():
         return {"message": "Chart Coordinator正在运行", "status": "ok"}
 
-# 可以添加自定义路由
+# 添加自定义路由
 @app.get("/health")
 async def health_check():
     """Render健康检查端点"""
@@ -41,7 +57,9 @@ async def health_check():
         "status": "healthy",
         "service": "Chart Coordinator",
         "framework": "Google ADK",
-        "message": "服务运行正常"
+        "message": "服务运行正常",
+        "working_dir": os.getcwd(),
+        "agents_dir": AGENT_DIR
     }
 
 @app.get("/hackathon-info")

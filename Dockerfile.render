@@ -12,7 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
     PORT=10000 \
-    PYTHONPATH=/app/chart_coordinator_project
+    PYTHONPATH=/app
 
 # 设置工作目录
 WORKDIR /app
@@ -74,5 +74,5 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:$PORT/ || exit 1
 
-# 启动命令 - 使用Google ADK官方FastAPI方式
-CMD ["python", "chart_coordinator_project/main.py"] 
+# 启动命令 - 从项目根目录启动
+CMD ["python", "-m", "chart_coordinator_project.main"] 
