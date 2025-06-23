@@ -9,11 +9,24 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 加载环境变量
-load_dotenv(encoding='utf-8')
+# 智能加载环境变量 - 先在根目录查找，找不到再在当前目录查找
+current_dir = Path(__file__).parent.absolute()
+
+# 尝试在项目根目录查找.env文件
+root_env_path = current_dir.parent / '.env'
+local_env_path = current_dir / '.env'
+
+if root_env_path.exists():
+    load_dotenv(root_env_path, encoding='utf-8')
+    print(f"✅ 加载根目录.env文件: {root_env_path}")
+elif local_env_path.exists():
+    load_dotenv(local_env_path, encoding='utf-8')
+    print(f"✅ 加载子目录.env文件: {local_env_path}")
+else:
+    print("⚠️ 未找到.env文件，将使用环境变量")
+    print(f"🔍 查找路径: {root_env_path}, {local_env_path}")
 
 # 处理导入路径问题
-current_dir = Path(__file__).parent.absolute()
 if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
     
@@ -30,6 +43,7 @@ def create_root_agent():
             print("⚠️  警告：未检测到有效的DEEPSEEK_API_KEY")
             print("💡 请在.env文件中配置：DEEPSEEK_API_KEY=你的密钥")
             print("📝 获取地址：https://platform.deepseek.com/")
+            print("🔧 或在Render环境变量中配置")
             return None
 
         # 导入我们的LLM驱动图表系统
@@ -51,6 +65,7 @@ def create_root_agent():
         print("   1. .env文件中的DEEPSEEK_API_KEY配置")
         print("   2. litellm库是否正确安装")
         print("   3. 所有依赖是否完整")
+        print("   4. Render环境变量配置")
         return None
 
 # ADK Web UI 要求的标准变量名
