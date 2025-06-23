@@ -17,7 +17,8 @@ services:
         fonts-liberation \
         fonts-noto-cjk \
         nodejs \
-        npm
+        npm \
+        git
       
       # 进入项目目录
       cd chart_coordinator_project
@@ -25,6 +26,9 @@ services:
       # 升级pip并安装Python依赖
       pip install --upgrade pip
       pip install -r requirements.txt
+      
+      # 安装Google ADK最新版本
+      pip install git+https://github.com/google/adk-python.git@main
       
       # 安装Node.js依赖
       npm install
@@ -43,7 +47,7 @@ services:
       
     startCommand: |
       cd chart_coordinator_project && 
-      gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --max-requests 1000 app:app
+      python main.py
     
     # 环境变量配置
     envVars:
@@ -53,7 +57,7 @@ services:
         value: /opt/render/project/src/chart_coordinator_project/node_modules
       - key: LOG_LEVEL
         value: INFO
-      - key: FLASK_ENV
+      - key: ADK_ENV
         value: production
       - key: PYTHONUNBUFFERED
         value: "1"

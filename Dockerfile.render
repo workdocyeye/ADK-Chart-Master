@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     graphviz \
     # 基础构建工具
     build-essential \
+    git \
     # 字体支持 (图表文本渲染)
     fonts-dejavu-core \
     fonts-liberation \
@@ -45,7 +46,8 @@ COPY . .
 # 安装Python依赖
 RUN cd chart_coordinator_project && \
     pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir git+https://github.com/google/adk-python.git@main
 
 # 安装Node.js依赖
 RUN cd chart_coordinator_project && \
@@ -68,21 +70,9 @@ RUN echo "=== 验证依赖安装 ===" && \
 # 暴露端口
 EXPOSE $PORT
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:$PORT/health || exit 1
+# 健康检查 - ADK web服务
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:$PORT/ || exit 1
 
-# 启动命令 - 使用Gunicorn生产服务器
-CMD cd chart_coordinator_project && \
-    gunicorn \
-    --bind 0.0.0.0:$PORT \
-    --workers 1 \
-    --worker-class sync \
-    --timeout 120 \
-    --max-requests 1000 \
-    --max-requests-jitter 100 \
-    --preload \
-    --access-logfile - \
-    --error-logfile - \
-    --log-level info \
-    app:app 
+# 启动命令 - 使用Google ADK官方FastAPI方式
+CMD ["python", "chart_coordinator_project/main.py"] 
