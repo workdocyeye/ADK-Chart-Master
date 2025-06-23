@@ -1,0 +1,14 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+healthcheckPath = "/"
+restartPolicyType = "never"
+
+[[services]]
+name = "chart-coordinator"
+
+[services.healthcheck]
+path = "/"
+intervalSeconds = 300
+timeoutSeconds = 10 
