@@ -5,7 +5,7 @@ Chart Coordinator - Google ADK Standard FastAPI Deployment
 符合Google ADK官方标准的FastAPI部署文件
 
 为Google ADK Hackathon设计的生产级部署配置
-使用Google ADK官方推荐的get_fast_api_app方法
+从项目根目录启动，模拟 'adk web' 行为
 """
 
 import os
@@ -16,22 +16,12 @@ print("🚀 启动Chart Coordinator服务...")
 print(f"📁 当前工作目录: {os.getcwd()}")
 print(f"🌍 环境变量PORT: {os.environ.get('PORT', '未设置')}")
 
-# 关键修复：agents_dir应该指向包含应用目录的父目录
-# 这样ADK就能发现chart_coordinator_project作为一个应用
-# 类似于本地运行 adk web 时的行为
-current_dir = os.getcwd()
-if current_dir.endswith('chart_coordinator_project'):
-    # 从chart_coordinator_project内运行 - 指向父目录
-    AGENT_DIR = ".."
-    print("📍 检测到从chart_coordinator_project目录内运行，指向父目录")
-else:
-    # 从项目根目录运行 - 指向当前目录
-    AGENT_DIR = "."
-    print("📍 检测到从项目根目录运行，指向当前目录")
-
+# ADK应用发现：从当前目录扫描包含agent.py的子目录
+# 这完全模拟了本地 'adk web' 的行为
+AGENT_DIR = "."  # 当前目录，让ADK扫描子目录
 print(f"📁 ADK agents_dir: {AGENT_DIR}")
 
-# 验证应用目录存在
+# 验证chart_coordinator_project应用目录存在
 app_dir = os.path.join(AGENT_DIR, 'chart_coordinator_project')
 if os.path.exists(app_dir):
     print(f"✅ 找到应用目录: {app_dir}")
@@ -49,11 +39,11 @@ app = None
 # 尝试使用Google ADK创建应用
 try:
     print("🔄 尝试创建Google ADK FastAPI应用...")
-    print(f"🎯 模拟 'adk web' 行为，agents_dir='{AGENT_DIR}'")
+    print(f"🎯 完全模拟本地 'adk web' 行为")
     from google.adk.cli.fast_api import get_fast_api_app
     
     app = get_fast_api_app(
-        agents_dir=AGENT_DIR,  # 指向包含应用的父目录
+        agents_dir=AGENT_DIR,  # 当前目录，ADK会发现chart_coordinator_project
         web=True,  # 启用Web UI界面
     )
     print("✅ Google ADK FastAPI应用创建成功")

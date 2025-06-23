@@ -75,6 +75,6 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:$PORT/ || exit 1
 
-# 启动命令 - 从项目根目录启动
+# 启动命令 - 从项目根目录启动，模拟 adk web
 WORKDIR /app
-CMD ["python", "chart_coordinator_project/main.py"] 
+CMD ["python", "main.py"] 
