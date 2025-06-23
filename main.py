@@ -9,8 +9,56 @@ Chart Coordinator - Google ADK Standard FastAPI Deployment
 """
 
 import os
+import sys
+from pathlib import Path
 import uvicorn
 from fastapi import FastAPI
+
+# 智能环境变量加载策略
+def load_environment():
+    """智能加载环境变量，支持多种部署场景"""
+    env_loaded = False
+    
+    # 策略1: 优先在项目根目录查找.env
+    root_env = Path(".env")
+    if root_env.exists():
+        print(f"✅ 加载根目录.env文件: {root_env.absolute()}")
+        from dotenv import load_dotenv
+        load_dotenv(root_env)
+        env_loaded = True
+    
+    # 策略2: 备用在chart_coordinator_project子目录查找.env
+    if not env_loaded:
+        sub_env = Path("chart_coordinator_project/.env")
+        if sub_env.exists():
+            print(f"✅ 加载子目录.env文件: {sub_env.absolute()}")
+            from dotenv import load_dotenv
+            load_dotenv(sub_env)
+            env_loaded = True
+    
+    # 策略3: 使用Render环境变量（生产环境）
+    if not env_loaded:
+        print("📡 使用Render平台环境变量")
+    
+    # 验证关键环境变量
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    if api_key:
+        print(f"✅ 检测到DEEPSEEK_API_KEY: {api_key[:10]}...")
+    else:
+        print("⚠️  警告: 未检测到DEEPSEEK_API_KEY，可能导致SSE连接失败")
+    
+    return env_loaded
+
+# 加载环境变量
+load_environment()
+
+# 添加chart_coordinator_project到Python路径
+chart_coordinator_path = os.path.join(os.getcwd(), 'chart_coordinator_project')
+if os.path.exists(chart_coordinator_path):
+    sys.path.insert(0, chart_coordinator_path)
+    print(f"添加路径到sys.path: {chart_coordinator_path}")
+
+print(f"当前sys.path前3项: {sys.path[:3]}")
 
 print("🚀 启动Chart Coordinator服务...")
 print(f"📁 当前工作目录: {os.getcwd()}")
@@ -86,7 +134,24 @@ async def health_check():
         "message": "服务运行正常",
         "working_dir": os.getcwd(),
         "agents_dir": AGENT_DIR,
-        "port": os.environ.get("PORT", "10000")
+        "port": os.environ.get("PORT", "10000"),
+        "deepseek_api_configured": bool(os.environ.get("DEEPSEEK_API_KEY"))
+    }
+
+@app.get("/debug/env")
+async def debug_env():
+    """环境变量调试接口"""
+    return {
+        "working_dir": os.getcwd(),
+        "python_path": sys.path[:5],
+        "environment_vars": {
+            "PORT": os.environ.get("PORT"),
+            "DEEPSEEK_API_KEY": "配置" if os.environ.get("DEEPSEEK_API_KEY") else "未配置",
+            "GOOGLE_API_KEY": "配置" if os.environ.get("GOOGLE_API_KEY") else "未配置",
+            "OPENAI_API_KEY": "配置" if os.environ.get("OPENAI_API_KEY") else "未配置",
+        },
+        "chart_coordinator_path": chart_coordinator_path,
+        "chart_coordinator_exists": os.path.exists(chart_coordinator_path)
     }
 
 @app.get("/hackathon-info")
@@ -120,6 +185,7 @@ def main():
     print(f"🎯 Web界面: http://0.0.0.0:{port}")
     print(f"📡 API文档: http://0.0.0.0:{port}/docs")
     print(f"❤️ 健康检查: http://0.0.0.0:{port}/health")
+    print(f"🔧 调试接口: http://0.0.0.0:{port}/debug/env")
     print("🔗 Render要求绑定到0.0.0.0以接收HTTP请求")
     print("📱 应该能看到 chart_coordinator_project 应用选择器")
     print("=" * 50)
@@ -131,7 +197,10 @@ def main():
             host="0.0.0.0",  # Render要求
             port=port,
             log_level="info",
-            access_log=True
+            access_log=True,
+            # 添加SSE相关配置
+            timeout_keep_alive=30,  # 保持连接时间
+            timeout_graceful_shutdown=10  # 优雅关闭时间
         )
     except Exception as e:
         print(f"❌ 服务器启动失败: {e}")
