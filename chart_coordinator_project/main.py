@@ -34,6 +34,16 @@ except Exception as e:
         return {"message": "Chart Coordinator正在运行", "status": "ok"}
 
 # 可以添加自定义路由
+@app.get("/health")
+async def health_check():
+    """Render健康检查端点"""
+    return {
+        "status": "healthy",
+        "service": "Chart Coordinator",
+        "framework": "Google ADK",
+        "message": "服务运行正常"
+    }
+
 @app.get("/hackathon-info")
 async def hackathon_info():
     """Hackathon项目信息接口"""
