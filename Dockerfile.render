@@ -52,6 +52,7 @@ RUN cd chart_coordinator_project && \
 # 安装Node.js依赖
 RUN cd chart_coordinator_project && \
     npm install --production --legacy-peer-deps && \
+    npm install -g @mermaid-js/mermaid-cli && \
     npm cache clean --force
 
 # 创建必要的目录
@@ -75,4 +76,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:$PORT/ || exit 1
 
 # 启动命令 - 从项目根目录启动
-CMD ["python", "-m", "chart_coordinator_project.main"] 
+WORKDIR /app
+CMD ["python", "chart_coordinator_project/main.py"] 
