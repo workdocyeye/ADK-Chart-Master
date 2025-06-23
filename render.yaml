@@ -36,6 +36,9 @@ services:
       # 安装Node.js依赖
       npm install --legacy-peer-deps
       
+      # 全局安装Mermaid CLI，解决工具警告
+      npm install -g @mermaid-js/mermaid-cli
+      
       # 验证关键依赖安装
       echo "=== 验证系统依赖 ==="
       java -version
