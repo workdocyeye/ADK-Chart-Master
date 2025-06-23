@@ -12,7 +12,10 @@ import os
 import sys
 from pathlib import Path
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse, HTMLResponse
+import json
+import asyncio
 
 # 智能环境变量加载策略
 def load_environment():
@@ -138,6 +141,30 @@ async def health_check():
         "deepseek_api_configured": bool(os.environ.get("DEEPSEEK_API_KEY"))
     }
 
+@app.get("/debug/sse-test-page")
+async def sse_test_page():
+    """SSE测试页面"""
+    from fastapi.responses import HTMLResponse
+    
+    # 读取HTML文件内容
+    try:
+        with open("sse_test.html", "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><title>SSE测试页面未找到</title></head>
+        <body>
+            <h1>❌ SSE测试页面未找到</h1>
+            <p>请确保 sse_test.html 文件存在于项目根目录。</p>
+            <p><a href="/debug/sse-test">直接测试SSE端点</a></p>
+            <p><a href="/">返回主页</a></p>
+        </body>
+        </html>
+        """)
+
 @app.get("/debug/env")
 async def debug_env():
     """环境变量调试接口"""
@@ -153,6 +180,41 @@ async def debug_env():
         "chart_coordinator_path": chart_coordinator_path,
         "chart_coordinator_exists": os.path.exists(chart_coordinator_path)
     }
+
+# 根据Google ADK文档添加SSE修复
+@app.get("/debug/sse-test")
+async def sse_test():
+    """SSE连接测试端点 - 用于诊断SSE问题"""
+    
+    async def event_generator():
+        """SSE事件生成器"""
+        try:
+            # 发送连接建立消息
+            yield f"data: {json.dumps({'type': 'connection', 'message': 'SSE连接已建立'})}\n\n"
+            
+            # 每秒发送一次心跳
+            for i in range(10):
+                await asyncio.sleep(1)
+                yield f"data: {json.dumps({'type': 'heartbeat', 'count': i+1, 'timestamp': f'{i+1}秒'})}\n\n"
+            
+            # 发送完成消息
+            yield f"data: {json.dumps({'type': 'complete', 'message': 'SSE测试完成'})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'SSE错误: {str(e)}'})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control",
+            "Content-Encoding": "identity",  # 关键：防止压缩缓冲
+            "X-Accel-Buffering": "no",  # 禁用Nginx缓冲
+        }
+    )
 
 @app.get("/hackathon-info")
 async def hackathon_info():
@@ -186,6 +248,7 @@ def main():
     print(f"📡 API文档: http://0.0.0.0:{port}/docs")
     print(f"❤️ 健康检查: http://0.0.0.0:{port}/health")
     print(f"🔧 调试接口: http://0.0.0.0:{port}/debug/env")
+    print(f"🔍 SSE测试: http://0.0.0.0:{port}/debug/sse-test")
     print("🔗 Render要求绑定到0.0.0.0以接收HTTP请求")
     print("📱 应该能看到 chart_coordinator_project 应用选择器")
     print("=" * 50)
@@ -198,9 +261,11 @@ def main():
             port=port,
             log_level="info",
             access_log=True,
-            # 添加SSE相关配置
-            timeout_keep_alive=30,  # 保持连接时间
-            timeout_graceful_shutdown=10  # 优雅关闭时间
+            # 优化SSE连接配置
+            timeout_keep_alive=60,  # 保持连接60秒
+            timeout_graceful_shutdown=15,  # 优雅关闭时间
+            limit_concurrency=1000,  # 并发连接限制
+            limit_max_requests=10000,  # 最大请求数
         )
     except Exception as e:
         print(f"❌ 服务器启动失败: {e}")
