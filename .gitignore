@@ -1,3 +1,7 @@
+# =====================================================
+# Chart Coordinator Project - Git忽略规则
+# =====================================================
+
 # IDE和编辑器配置文件
 .cursor/
 .vscode/
@@ -9,31 +13,21 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+.venv/
+.env
+
+# Node.js
+node_modules/
+package-lock.json
 
 # 虚拟环境
 venv/
 env/
 ENV/
 .venv/
+.conda/
 
 # 系统文件
 .DS_Store
@@ -45,7 +39,7 @@ desktop.ini
 *.log
 logs/
 
-# 环境变量文件
+# 环境变量文件（重要！不要上传API密钥）
 .env
 .env.local
 .env.development.local
@@ -59,14 +53,38 @@ htmlcov/
 .tox/
 .nox/
 
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# 临时文件
+# 输出文件
+outputs/
 temp/
-tmp/
-*.backup
-*.bak 
+*.tmp
+
+# 图表输出文件
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.pdf
+*.html
+
+# PlantUML相关
+*.puml.png
+*.puml.svg
+
+# 数据文件
+*.csv
+*.xlsx
+*.json.bak
+
+# Docker相关
+.dockerignore.bak
+
+# 部署相关
+.render/
+.railway/
+.vercel/
+
+# 本地开发文件
+local_test.py
+debug.py
+test_*.py.bak 

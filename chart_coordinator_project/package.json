@@ -1,17 +1,51 @@
 {
+  "name": "chart-coordinator-project",
+  "version": "1.2.0",
+  "description": "基于Google ADK框架的企业级智能图表生成系统 - Chart Coordinator Project",
+  "main": "app.py",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "scripts": {
+    "start": "node --version && npm --version",
+    "test": "echo \"Chart Coordinator Project - Tests not implemented yet\" && exit 0",
+    "install:global": "npm install -g @mermaid-js/mermaid-cli",
+    "verify": "node --version && npm --version && echo \"Node.js环境验证成功\"",
+    "clean": "rm -rf node_modules package-lock.json && npm install"
+  },
   "dependencies": {
     "echarts": "^5.6.0",
     "jsdom": "^26.1.0",
-    "three": "^0.177.0"
+    "three": "^0.177.0",
+    "canvas": "^2.11.2",
+    "puppeteer": "^23.9.0"
   },
-  "name": "adk-chart-master",
-  "version": "1.1.0",
-  "description": "基于Google ADK框架的企业级智能图表生成系统 - ADK Chart Master",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "devDependencies": {
+    "@types/three": "^0.177.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "optionalDependencies": {
+    "@mermaid-js/mermaid-cli": "^10.9.0"
+  },
+  "keywords": [
+    "chart",
+    "visualization", 
+    "ai",
+    "google-adk",
+    "hackathon",
+    "echarts",
+    "threejs",
+    "mermaid",
+    "plantuml"
+  ],
+  "author": "Chart Coordinator Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/chart-coordinator-project.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/chart-coordinator-project/issues"
+  },
+  "homepage": "https://github.com/your-username/chart-coordinator-project#readme"
 }

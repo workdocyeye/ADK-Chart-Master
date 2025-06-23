@@ -1,15 +1,23 @@
 # ===================================================================
 # Chart Coordinator Project - Final Dependencies for Deployment
-# 项目最终部署依赖清单 (V1.0)
+# 项目最终部署依赖清单 (V1.0 - Render优化版)
 # - 该文件由AI助手通过代码扫描和人工分析生成
 # - 包含了运行所有17个渲染工具所需的全部核心依赖
+# - 针对Render云平台部署优化
 # - 更新日期: 2024-06-20
 # ===================================================================
+
+# --- Web框架 (Web Framework) ---
+flask>=3.0.0               # Web应用框架
+flask-cors>=4.0.0           # 跨域支持
+gunicorn>=21.0.0            # WSGI HTTP服务器（用于生产部署）
+flask-asyncio>=0.9.0        # Flask异步支持
 
 # --- 核心框架 (Core Framework) ---
 google-genai>=0.7.0          # Google ADK/Gemini 核心
 google-adk>=0.1.0            # Google ADK 框架
 python-dotenv>=1.0.0       # 用于加载 .env 环境变量
+litellm>=1.0.0                # ADK依赖的LiteLLM库 
 
 # --- 基础数据科学库 (Essential Data Science) ---
 numpy>=1.24.0              # 数值计算
@@ -42,35 +50,61 @@ lxml>=5.0.0                # 高性能的XML/HTML解析器
 beautifulsoup4>=4.12.0     # 用于解析HTML，提取图表内容
 # js2py>=0.74              # (可选) 如果需要直接在Python中运行JS片段
 
-# --- 其它工具库 (Other Utilities) ---
+# --- HTTP和网络请求 (HTTP & Network) ---
 requests>=2.31.0           # 用于HTTP请求 (例如: PlantUML服务器)
+aiohttp>=3.9.0             # 异步HTTP客户端
+httpx>=0.27.0              # 现代HTTP客户端库
+
+# --- 图像处理 (Image Processing) ---
 pillow>=10.0.0             # 图像处理库 (保存、转换格式)
+
+# --- 统计和科学计算 (Statistics & Scientific Computing) ---
 statsmodels>=0.14.0        # 统计模型 (用于生成趋势线等)
+
+# --- 类型提示和兼容性 (Type Hints & Compatibility) ---
 typing-extensions>=4.5.0   # 兼容旧版本Python的类型提示
 
-# --- 补充依赖 (Additional Dependencies) ---
+# --- Jupyter环境支持 (Jupyter Support) ---
 jupyter>=1.0.0             # Jupyter环境支持 (py3Dmol需要)
 ipython>=8.0.0             # IPython环境支持
+
+# --- 元数据和压缩 (Metadata & Compression) ---
 importlib-metadata>=4.0.0  # 元数据导入支持
 zipp>=3.0.0                # 压缩文件处理
 
-# ===================================================================
-# 系统级依赖 (System-level Dependencies)
-# ===================================================================
-# 1. Node.js (LTS Version): 用于执行 ECharts, Three.js, Flowchart.js 等
-#    - 安装后，在 `chart_coordinator_project` 目录下运行: npm install
-#
-# 2. Graphviz: 用于渲染 Graphviz 图表
-#    - Windows: choco install graphviz
-#    - macOS: brew install graphviz
-#    - Linux (Ubuntu): sudo apt-get install graphviz
-#
-# 3. Java Runtime Environment (JRE 8+): 用于运行 PlantUML
-#    - PlantUMLRenderTool 会从服务器请求渲染，但本地渲染需要Java环境
-#
-# 4. 中文字体 (Chinese Fonts): 如果图表需要显示中文
-#    - 需要在操作系统中安装中文字体 (如 "SimHei", "Microsoft YaHei" 等)
-#      并可能需要清理matplotlib缓存。
-# =================================================================== 
+# --- 异步和并发处理 (Async & Concurrency) ---
+asyncio-mqtt>=0.16.1       # 异步MQTT支持（可选）
 
-litellm>=1.0.0                # ADK依赖的LiteLLM库 
+# --- 日志和监控 (Logging & Monitoring) ---
+structlog>=23.1.0          # 结构化日志
+prometheus-client>=0.19.0  # Prometheus监控客户端（可选）
+
+# --- 数据序列化 (Data Serialization) ---
+pydantic>=2.5.0            # 数据验证和序列化
+orjson>=3.9.0              # 高性能JSON库
+
+# --- 开发和测试工具 (Development & Testing) ---
+pytest>=7.4.0             # 测试框架
+pytest-asyncio>=0.21.0    # 异步测试支持
+
+# ===================================================================
+# 系统级依赖说明 (System-level Dependencies) 
+# ===================================================================
+# 以下依赖需要在Render构建时安装，已在render.yaml中配置：
+#
+# 1. Node.js (LTS Version): 用于执行 ECharts, Three.js, Flowchart.js 等
+#    - 通过Render的Node.js buildpack自动安装
+#    - package.json中定义npm依赖
+#
+# 2. Java Runtime Environment (JRE): 用于运行 PlantUML
+#    - 通过apt-get在构建阶段安装
+#    - PlantUML也可以使用在线服务作为备选
+#
+# 3. Graphviz: 用于渲染 Graphviz 图表
+#    - 通过apt-get在构建阶段安装
+#    - 包含dot、neato、fdp等布局引擎
+#
+# 4. 系统字体: 用于图表文本渲染
+#    - 通过apt-get安装中文字体包
+#    - 防止matplotlib等工具出现字体缺失问题
+# =================================================================== 

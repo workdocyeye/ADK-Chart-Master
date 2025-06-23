@@ -1,0 +1,101 @@
+services:
+  # Chart Coordinator AI智能图表生成系统
+  - type: web
+    name: chart-coordinator
+    runtime: python
+    plan: free  # 免费计划开始，可升级到starter($7/月)
+    region: oregon  # 推荐俄勒冈地区，延迟较低
+    buildCommand: |
+      # 更新包管理器
+      apt-get update
+      
+      # 安装系统级依赖
+      apt-get install -y --no-install-recommends \
+        default-jre-headless \
+        graphviz \
+        fonts-dejavu-core \
+        fonts-liberation \
+        fonts-noto-cjk \
+        nodejs \
+        npm
+      
+      # 进入项目目录
+      cd chart_coordinator_project
+      
+      # 升级pip并安装Python依赖
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      
+      # 安装Node.js依赖
+      npm install
+      
+      # 验证关键依赖安装
+      echo "=== 验证系统依赖 ==="
+      java -version
+      dot -V  
+      node --version
+      python --version
+      
+      # 创建临时目录
+      mkdir -p /tmp/charts /tmp/outputs
+      
+      echo "=== 构建完成 ==="
+      
+    startCommand: |
+      cd chart_coordinator_project && 
+      gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --max-requests 1000 app:app
+    
+    # 环境变量配置
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src/chart_coordinator_project
+      - key: NODE_PATH  
+        value: /opt/render/project/src/chart_coordinator_project/node_modules
+      - key: LOG_LEVEL
+        value: INFO
+      - key: FLASK_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      # API密钥 - 需要在Render控制台手动设置
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY  
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Chart Coordinator特定配置
+      - key: CHART_OUTPUT_DIR
+        value: /tmp/charts
+      - key: MAX_CHART_SIZE_MB
+        value: "50"
+      - key: DEFAULT_CHART_TIMEOUT
+        value: "60"
+    
+    # 健康检查配置
+    healthCheckPath: /health
+    
+    # 自动部署设置
+    autoDeploy: true
+    
+    # 磁盘配置
+    disk:
+      name: chart-coordinator-disk
+      mountPath: /tmp
+      sizeGB: 1
+    
+  # 可选：如果需要Redis缓存
+  # - type: redis
+  #   name: chart-coordinator-redis
+  #   plan: free
+  #   region: oregon
+
+# 可选：如果需要PostgreSQL数据库
+# databases:
+#   - name: chart-coordinator-db
+#     databaseName: chartcoordinator
+#     user: chartuser
+#     plan: free
+#     region: oregon 
