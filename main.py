@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 # 正确的Google ADK导入 - 基于官方文档
 try:
     from google.adk.agents import Agent
-    from google.adk.core.runners import InMemoryRunner
+    from google.adk.runners import InMemoryRunner
     ADK_AVAILABLE = True
     print("✅ Google ADK导入成功")
 except ImportError as e:
